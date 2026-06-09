@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="音高">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#7c3aed">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <title>音高训练</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+      background: #f5f3ff;
+      color: #1f2937;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+    }
+    #app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;     /* fallback */
+      min-height: 100dvh;    /* iOS Safari 实际可见视口 */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      box-shadow: 0 0 30px rgba(0,0,0,0.04);
+    }
+    [hidden] { display: none !important; }
+
+    /* ---- 大屏(iPad/平板)卡片化 ---- */
+    @media (min-height: 800px) {
+      body {
+        align-items: center;
+        padding: 24px 0;
+      }
+      #app {
+        min-height: 0;
+        height: min(760px, calc(100dvh - 48px));
+        padding-top: 0;
+        padding-bottom: 0;
+        border-radius: 24px;
+        overflow-y: auto;
+      }
+    }
+
+    /* ---- 通用 ---- */
+    .view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 16px 12px;
+    }
+    #view-select { padding: 24px 20px; }
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 24px;
+      color: #5b21b6;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 18px;
+      margin: 10px 0;
+      font-size: 20px;
+      font-weight: 600;
+      border: none;
+      border-radius: 14px;
+      background: #7c3aed;
+      color: #fff;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.05s, background 0.15s;
+    }
+    .btn:active { transform: scale(0.97); background: #6d28d9; }
+    .btn.secondary { background: #e5e7eb; color: #374151; }
+    .btn.secondary:active { background: #d1d5db; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .link-btn {
+      display: inline-block;
+      background: none;
+      border: none;
+      color: #7c3aed;
+      font-size: 16px;
+      padding: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* ---- 难度选择 ---- */
+    .difficulty-list { display: flex; flex-direction: column; gap: 4px; }
+    .history {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .history h3 {
+      font-size: 16px;
+      color: #6b7280;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history h3 .clear {
+      font-size: 13px;
+      color: #ef4444;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .history-list { display: flex; flex-direction: column; gap: 6px; }
+    .history-item {
+      background: #f9fafb;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #374151;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-item .label { font-weight: 600; color: #1f2937; }
+    .history-item .meta { color: #6b7280; font-size: 12px; }
+    .history-empty { color: #9ca3af; font-size: 14px; text-align: center; padding: 12px; }
+
+    /* ---- 测试就绪 ---- */
+    .ready-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .ready-card .difficulty-name {
+      font-size: 24px;
+      font-weight: 600;
+      color: #5b21b6;
+      margin-bottom: 8px;
+    }
+    .ready-card .hint {
+      color: #6b7280;
+      font-size: 15px;
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+    .ready-card .btn { max-width: 260px; }
+
+    /* ---- 答题中 ---- */
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 4px 10px;
+      font-size: 16px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    .quiz-header .timer { color: #5b21b6; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .quiz-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: stretch;
+      gap: 14px;
+      padding: 8px 0 12px;
+    }
+    /* 重听 / 重新定调 */
+    .listen-row { display: flex; gap: 10px; justify-content: center; }
+    .listen-btn {
+      flex: 1;
+      max-width: 200px;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: 600;
+      border: none;
+      border-radius: 14px;
+      background: #ede9fe;
+      color: #5b21b6;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.1s, transform 0.05s;
+    }
+    .listen-btn:active { background: #ddd6fe; transform: scale(0.97); }
+    .listen-btn.playing { background: #c4b5fd; }
+
+    /* 已选级数回显 */
+    .input-display {
+      text-align: center;
+      min-height: 64px;
+      font-size: 40px;
+      font-weight: 600;
+      color: #7c3aed;
+      padding: 8px 16px;
+      margin: 0 auto;
+      min-width: 160px;
+      background: #f5f3ff;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .input-display .placeholder { color: #c4b5fd; font-weight: 400; font-size: 22px; }
+    .input-display .arrow { color: #a78bfa; font-size: 26px; }
+
+    /* 反馈 */
+    .quiz-feedback {
+      text-align: center;
+      min-height: 28px;
+      font-size: 18px;
+      font-weight: 700;
+      padding: 2px;
+    }
+    .quiz-feedback.right { color: #10b981; }
+    .quiz-feedback.wrong { color: #ef4444; }
+
+    /* 简谱级数样式：高/低八度点 */
+    .jp {
+      position: relative;
+      display: inline-block;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .jp.oct-hi::before,
+    .jp.oct-lo::after {
+      content: "•";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.42em;
+      line-height: 1;
+    }
+    .jp.oct-hi::before { top: -0.42em; }
+    .jp.oct-lo::after  { bottom: -0.42em; }
+
+    /* 简谱选择盘 */
+    .jp-pad {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .jp-key {
+      min-height: 58px;
+      font-size: 24px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      background: #f3f4f6;
+      color: #1f2937;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.08s, transform 0.05s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .jp-key:active { background: #d1d5db; transform: scale(0.95); }
+    .jp-key:disabled { opacity: 0.4; }
+    .jp-key.highlight { background: #34d399; color: #064e3b; }
+
+    /* 底部操作按钮 */
+    .quiz-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .act-btn {
+      padding: 14px 4px;
+      font-size: 17px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.1s, transform 0.05s;
+    }
+    .act-btn:active { transform: scale(0.96); }
+    .act-clear { background: #fde68a; color: #92400e; }
+    .act-clear:active { background: #fcd34d; }
+    .act-submit { background: #7c3aed; color: #fff; }
+    .act-submit:active { background: #6d28d9; }
+    .act-next { background: #34d399; color: #064e3b; }
+    .act-next:active { background: #10b981; }
+    .act-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ---- 结算 ---- */
+    .result-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 16px;
+    }
+    .result-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 14px 18px;
+      background: #f9fafb;
+      border-radius: 12px;
+      font-size: 18px;
+    }
+    .result-stat .label { color: #6b7280; }
+    .result-stat .value {
+      font-size: 28px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .result-stat.correct .value { color: #10b981; }
+    .result-stat.wrong .value { color: #ef4444; }
+    .result-actions { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- View 1: 难度选择 -->
+    <div id="view-select" class="view">
+      <div class="title">音高训练</div>
+      <div class="difficulty-list" id="difficulty-list"></div>
+      <div class="history">
+        <h3>
+          <span>历史记录</span>
+          <button class="clear" id="btn-clear-history" hidden>清除记录</button>
+        </h3>
+        <div class="history-list" id="history-list"></div>
+      </div>
+    </div>
+
+    <!-- View 2: 测试就绪 -->
+    <div id="view-ready" class="view" hidden>
+      <div class="ready-card">
+        <div class="difficulty-name" id="ready-difficulty-name"></div>
+        <div class="hint">共 10 题 · 听音辨级<br>每题先播主和弦与 do 建立调性</div>
+        <button class="btn" id="btn-start">开始测试</button>
+        <button class="link-btn" id="btn-ready-back">返回</button>
+      </div>
+    </div>
+
+    <!-- View 3: 答题中 -->
+    <div id="view-quiz" class="view" hidden>
+      <div class="quiz-header">
+        <span id="quiz-progress">第 1 / 10 题</span>
+        <span class="timer" id="quiz-timer">0:00</span>
+      </div>
+      <div class="quiz-body">
+        <div class="listen-row">
+          <button class="listen-btn" id="btn-replay">▶ 重听</button>
+        </div>
+        <div class="input-display" id="quiz-input"><span class="placeholder">请选择简谱</span></div>
+        <div class="quiz-feedback" id="quiz-feedback">&nbsp;</div>
+        <div class="jp-pad" id="quiz-pad"></div>
+      </div>
+      <div class="quiz-actions">
+        <button class="act-btn act-clear" id="btn-clear">清除</button>
+        <button class="act-btn act-submit" id="btn-submit">提交</button>
+        <button class="act-btn act-next" id="btn-next" disabled>下一题</button>
+      </div>
+    </div>
+
+    <!-- View 4: 结算 -->
+    <div id="view-result" class="view" hidden>
+      <div class="title">本次成绩</div>
+      <div class="result-card">
+        <div class="result-stat">
+          <span class="label">完成</span>
+          <span class="value" id="result-completed">—</span>
+        </div>
+        <div class="result-stat correct">
+          <span class="label">正确</span>
+          <span class="value" id="result-correct">—</span>
+        </div>
+        <div class="result-stat wrong">
+          <span class="label">错误</span>
+          <span class="value" id="result-wrong">—</span>
+        </div>
+        <div class="result-stat">
+          <span class="label">用时</span>
+          <span class="value" id="result-duration">—</span>
+        </div>
+        <div class="result-actions">
+          <button class="btn secondary" id="btn-back-to-select">回到难度选择</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ===== 难度配置 =====
+    const DEGREES = [0, 2, 4, 5, 7, 9, 11]; // 大调 1-7 相对主音的半音数
+    const DIFFICULTIES = [
+      { key: 'single',     label: '单音训练',           mode: 'single',   octaves: [0] },
+      { key: 'single_oct', label: '单音训练（含八度）', mode: 'single',   octaves: [-1, 0, 1] },
+      { key: 'interval',   label: '双音训练（旋律音程）', mode: 'interval', octaves: [0] },
+    ];
+    const DIFFICULTY_MAP = Object.fromEntries(DIFFICULTIES.map(d => [d.key, d]));
+    const TOTAL_QUESTIONS = 10;
+    const TONIC_MIN = 57, TONIC_MAX = 64; // 主音范围(MIDI)，保证各音落在舒适区
+    const HISTORY_KEY = 'pitchquiz_history';
+    const HISTORY_MAX = 20;
+    const HISTORY_SHOW = 5;
+
+    // ===== 工具 =====
+    const $ = id => document.getElementById(id);
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const formatMs = ms => {
+      const total = Math.max(0, Math.round(ms / 1000));
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    };
+    const formatDate = ts => {
+      const d = new Date(ts);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    // 简谱 token -> MIDI
+    const tokenToMidi = (tonicMidi, tok) => tonicMidi + DEGREES[tok.deg - 1] + 12 * tok.oct;
+    // 简谱 token -> HTML(带高低八度点)
+    const tokenToHtml = tok => {
+      const cls = tok.oct > 0 ? ' oct-hi' : (tok.oct < 0 ? ' oct-lo' : '');
+      return `<span class="jp${cls}">${tok.deg}</span>`;
+    };
+    const tokenEq = (a, b) => a.deg === b.deg && a.oct === b.oct;
+
+    // ===== Web Audio 发声引擎 =====
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+    const midiToFreq = midi => 440 * Math.pow(2, (midi - 69) / 12);
+    // 单音：基频 + 2 个泛音 + 指数衰减包络，钢琴感
+    function playNote(midi, t0, dur, peak = 0.5) {
+      const ctx = audioCtx;
+      const freq = midiToFreq(midi);
+      const env = ctx.createGain();
+      env.connect(ctx.destination);
+      env.gain.setValueAtTime(0.0001, t0);
+      env.gain.exponentialRampToValueAtTime(peak, t0 + 0.01);          // 快起
+      env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);         // 指数衰减
+      const partials = [[1, 1], [2, 0.3], [3, 0.15]];
+      partials.forEach(([mult, amp]) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq * mult;
+        const g = ctx.createGain();
+        g.gain.value = amp;
+        osc.connect(g).connect(env);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.05);
+      });
+    }
+    function playChord(midis, t0, dur) {
+      midis.forEach(m => playNote(m, t0, dur, 0.32));
+    }
+
+    let isPlaying = false;
+    // 播放：主和弦 -> do -> 题目音；可选只播题目音(replayQuestionOnly)
+    function playSequence(q, replayQuestionOnly = false) {
+      ensureAudio();
+      const ctx = audioCtx;
+      let t = ctx.currentTime + 0.06;
+      if (!replayQuestionOnly) {
+        // 主和弦 1-3-5(block)
+        const triad = [q.tonicMidi, q.tonicMidi + 4, q.tonicMidi + 7];
+        playChord(triad, t, 1.0);
+        t += 1.25;
+        // do (主音)
+        playNote(q.tonicMidi, t, 0.7);
+        t += 1.0;
+      }
+      // 题目音(单音 / 旋律双音先后)
+      q.noteMidis.forEach((m, i) => {
+        playNote(m, t, 0.8);
+        t += 1.0;
+      });
+      // 播放态用于按钮反馈
+      isPlaying = true;
+      const totalMs = (t - ctx.currentTime) * 1000;
+      setTimeout(() => { isPlaying = false; updateReplayBtn(); }, totalMs);
+      updateReplayBtn();
+    }
+    // 单独回放正确答案的音(提交后)
+    function playAnswerTones(q) {
+      ensureAudio();
+      const ctx = audioCtx;
+      let t = ctx.currentTime + 0.06;
+      q.noteMidis.forEach(m => { playNote(m, t, 0.8); t += 1.0; });
+    }
+    function updateReplayBtn() {
+      $('btn-replay').classList.toggle('playing', isPlaying);
+    }
+
+    // ===== 出题(首调，每题随机换调) =====
+    function makeQuestion(diff) {
+      const tonicMidi = randInt(TONIC_MIN, TONIC_MAX);
+      const pick = () => ({
+        deg: randInt(1, 7),
+        oct: diff.octaves[randInt(0, diff.octaves.length - 1)],
+      });
+      let answer;
+      if (diff.mode === 'single') {
+        answer = [pick()];
+      } else {
+        // 旋律双音：两个互异级数(token 不同)
+        const a = pick();
+        let b = pick();
+        let guard = 0;
+        while (tokenEq(a, b) && guard++ < 50) b = pick();
+        answer = [a, b];
+      }
+      const noteMidis = answer.map(tok => tokenToMidi(tonicMidi, tok));
+      return { tonicMidi, answer, noteMidis, userInput: [], locked: false, correct: null };
+    }
+    function generateQuestions(difficultyKey) {
+      const diff = DIFFICULTY_MAP[difficultyKey];
+      return Array.from({ length: TOTAL_QUESTIONS }, () => makeQuestion(diff));
+    }
+
+    // ===== 状态 =====
+    let session = null;
+    let timerId = null;
+
+    // ===== 视图切换 =====
+    const VIEWS = ['view-select', 'view-ready', 'view-quiz', 'view-result'];
+    function showView(name) {
+      VIEWS.forEach(v => $(v).hidden = (v !== name));
+    }
+
+    // ===== 历史记录 =====
+    function loadHistory() {
+      try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) { return []; }
+    }
+    function saveHistoryEntry(entry) {
+      try {
+        const list = loadHistory();
+        list.unshift(entry);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX)));
+      } catch (e) { /* 静默 */ }
+    }
+    function clearHistory() {
+      try { localStorage.removeItem(HISTORY_KEY); } catch (e) {}
+    }
+    function renderHistory() {
+      const listEl = $('history-list');
+      const clearBtn = $('btn-clear-history');
+      const list = loadHistory();
+      if (list.length === 0) {
+        listEl.innerHTML = '<div class="history-empty">还没有记录，试一次吧 ~</div>';
+        clearBtn.hidden = true;
+        return;
+      }
+      clearBtn.hidden = false;
+      listEl.innerHTML = list.slice(0, HISTORY_SHOW).map(item => {
+        const d = DIFFICULTY_MAP[item.difficulty];
+        const label = d ? d.label : item.difficulty;
+        return `<div class="history-item">
+          <div>
+            <div class="label">${label}</div>
+            <div class="meta">${formatDate(item.finishedAt)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="label">${item.correct} / ${item.total}</div>
+            <div class="meta">用时 ${formatMs(item.durationMs)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ===== View 1: 难度选择 =====
+    function renderDifficultyList() {
+      const wrap = $('difficulty-list');
+      wrap.innerHTML = '';
+      DIFFICULTIES.forEach(d => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = d.label;
+        btn.addEventListener('click', () => enterReady(d.key));
+        wrap.appendChild(btn);
+      });
+    }
+    function backToSelect() {
+      stopTimer();
+      session = null;
+      renderHistory();
+      showView('view-select');
+    }
+
+    // ===== View 2: 就绪 =====
+    function enterReady(difficultyKey) {
+      session = { difficultyKey };
+      $('ready-difficulty-name').textContent = DIFFICULTY_MAP[difficultyKey].label;
+      showView('view-ready');
+    }
+
+    // ===== View 3: 答题 =====
+    function startQuiz() {
+      const difficultyKey = session.difficultyKey;
+      ensureAudio(); // iOS：在用户手势内解锁音频
+      session = {
+        difficultyKey,
+        questions: generateQuestions(difficultyKey),
+        currentIdx: 0,
+        startTime: Date.now(),
+        endTime: null,
+      };
+      buildPad();
+      showView('view-quiz');
+      renderQuizQuestion();
+      startTimer();
+      playSequence(session.questions[0]);
+    }
+
+    function currentQuestion() { return session.questions[session.currentIdx]; }
+
+    function buildPad() {
+      const diff = DIFFICULTY_MAP[session.difficultyKey];
+      const wrap = $('quiz-pad');
+      wrap.innerHTML = '';
+      // 八度从高到低排列(高音在上)；每行 1-7
+      const octs = diff.octaves.slice().sort((a, b) => b - a);
+      wrap.style.gridTemplateRows = `repeat(${octs.length}, 1fr)`;
+      octs.forEach(oct => {
+        for (let deg = 1; deg <= 7; deg++) {
+          const tok = { deg, oct };
+          const b = document.createElement('button');
+          b.className = 'jp-key';
+          b.innerHTML = tokenToHtml(tok);
+          b.dataset.deg = deg;
+          b.dataset.oct = oct;
+          b.addEventListener('click', () => onPadTap(tok));
+          wrap.appendChild(b);
+        }
+      });
+    }
+
+    function renderQuizQuestion() {
+      const q = currentQuestion();
+      $('quiz-progress').textContent = `第 ${session.currentIdx + 1} / ${TOTAL_QUESTIONS} 题`;
+      const fb = $('quiz-feedback');
+      fb.innerHTML = '&nbsp;';
+      fb.className = 'quiz-feedback';
+      $('btn-submit').disabled = false;
+      $('btn-clear').disabled = false;
+      $('btn-next').disabled = true;
+      clearPadHighlight();
+      setPadDisabled(false);
+      renderInput();
+    }
+
+    function renderInput() {
+      const q = currentQuestion();
+      const diff = DIFFICULTY_MAP[session.difficultyKey];
+      const el = $('quiz-input');
+      if (q.userInput.length === 0) {
+        const hint = diff.mode === 'interval' ? '按顺序选两个' : '请选择简谱';
+        el.innerHTML = `<span class="placeholder">${hint}</span>`;
+        return;
+      }
+      el.innerHTML = q.userInput.map(tokenToHtml).join('<span class="arrow">→</span>');
+    }
+
+    function maxInput() {
+      return DIFFICULTY_MAP[session.difficultyKey].mode === 'interval' ? 2 : 1;
+    }
+
+    function onPadTap(tok) {
+      const q = currentQuestion();
+      if (q.locked) return;
+      if (q.userInput.length >= maxInput()) {
+        if (maxInput() === 1) q.userInput = [tok]; // 单音：直接替换
+        else return;                               // 旋律：满 2 个忽略，需先清除
+      } else {
+        q.userInput.push(tok);
+      }
+      renderInput();
+    }
+
+    function clearInput() {
+      const q = currentQuestion();
+      if (q.locked) return;
+      q.userInput = [];
+      renderInput();
+    }
+
+    function clearPadHighlight() {
+      $('quiz-pad').querySelectorAll('.jp-key.highlight').forEach(el => el.classList.remove('highlight'));
+    }
+    function setPadDisabled(disabled) {
+      $('quiz-pad').querySelectorAll('.jp-key').forEach(el => el.disabled = disabled);
+    }
+    function highlightAnswer(q) {
+      q.answer.forEach(tok => {
+        const sel = `.jp-key[data-deg="${tok.deg}"][data-oct="${tok.oct}"]`;
+        const el = $('quiz-pad').querySelector(sel);
+        if (el) el.classList.add('highlight');
+      });
+    }
+
+    function submitAnswer() {
+      const q = currentQuestion();
+      if (q.locked) return;
+      if (q.userInput.length < maxInput()) return; // 未选满，无效
+      q.locked = true;
+      q.correct = q.userInput.length === q.answer.length
+        && q.answer.every((tok, i) => tokenEq(tok, q.userInput[i]));
+
+      const fb = $('quiz-feedback');
+      if (q.correct) {
+        fb.innerHTML = '正确 ✓';
+        fb.className = 'quiz-feedback right';
+      } else {
+        const ans = q.answer.map(tokenToHtml).join('<span class="arrow">→</span>');
+        fb.innerHTML = `正确答案：${ans}`;
+        fb.className = 'quiz-feedback wrong';
+      }
+      // 锁定 + 高亮正确级数 + 回放正确答案音
+      setPadDisabled(true);
+      clearPadHighlight();
+      highlightAnswer(q);
+      playAnswerTones(q);
+
+      $('btn-submit').disabled = true;
+      $('btn-clear').disabled = true;
+      $('btn-next').disabled = false;
+    }
+
+    function nextQuestion() {
+      if (!currentQuestion().locked) return;
+      if (session.currentIdx + 1 >= TOTAL_QUESTIONS) {
+        finishQuiz();
+        return;
+      }
+      session.currentIdx++;
+      renderQuizQuestion();
+      playSequence(currentQuestion());
+    }
+
+    // ===== 计时器(正计时) =====
+    function startTimer() {
+      updateTimerDisplay();
+      timerId = setInterval(updateTimerDisplay, 500);
+    }
+    function stopTimer() {
+      if (timerId) { clearInterval(timerId); timerId = null; }
+    }
+    function updateTimerDisplay() {
+      $('quiz-timer').textContent = formatMs(Date.now() - session.startTime);
+    }
+
+    function finishQuiz() {
+      stopTimer();
+      session.endTime = Date.now();
+      const durationMs = session.endTime - session.startTime;
+      const answered = session.questions.filter(q => q.correct !== null);
+      const correct = answered.filter(q => q.correct).length;
+      const wrong = answered.length - correct;
+
+      $('result-completed').textContent = `${answered.length} / ${TOTAL_QUESTIONS}`;
+      $('result-correct').textContent = `${correct}`;
+      $('result-wrong').textContent = `${wrong}`;
+      $('result-duration').textContent = formatMs(durationMs);
+
+      saveHistoryEntry({
+        difficulty: session.difficultyKey,
+        correct,
+        total: TOTAL_QUESTIONS,
+        durationMs,
+        finishedAt: session.endTime,
+      });
+
+      showView('view-result');
+    }
+
+    // ===== 初始化 =====
+    function init() {
+      renderDifficultyList();
+      renderHistory();
+
+      $('btn-start').addEventListener('click', startQuiz);
+      $('btn-ready-back').addEventListener('click', backToSelect);
+      $('btn-back-to-select').addEventListener('click', backToSelect);
+      $('btn-replay').addEventListener('click', () => playSequence(currentQuestion()));
+      $('btn-clear').addEventListener('click', clearInput);
+      $('btn-submit').addEventListener('click', submitAnswer);
+      $('btn-next').addEventListener('click', nextQuestion);
+      $('btn-clear-history').addEventListener('click', () => {
+        if (confirm('确定清除所有历史记录吗？')) {
+          clearHistory();
+          renderHistory();
+        }
+      });
+
+      showView('view-select');
+    }
+
+    init();
+
+    // 注册 Service Worker(file:// 协议下浏览器不支持，会静默失败)
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => { /* 静默 */ });
+      });
+    }
+  </script>
+</body>
+</html>

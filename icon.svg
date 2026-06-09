@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#7c3aed"/>
+  <g fill="#ffffff">
+    <!-- 八分音符 -->
+    <rect x="300" y="120" width="26" height="230" rx="13"/>
+    <ellipse cx="268" cy="350" rx="58" ry="44"/>
+    <path d="M326 120 q70 18 70 86 q0 22 -10 40 q4 -16 4 -30 q0 -52 -64 -70 z"/>
+  </g>
+</svg>
